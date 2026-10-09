@@ -3,7 +3,7 @@ schema_version: "1"
 identity:
   id: "@omadia/plugin-llm-seibertgpt"
   name: "SeibertGPT LLM Provider"
-  version: "0.1.0"
+  version: "0.1.1"
   kind: "extension"
   domain: "llm.provider.seibertgpt"
   description: "Macht SeibertGPT (DeepSeek V4.1 Flash, betrieben von der Seibert Group) als admin-wählbaren, OpenAI-kompatiblen LLM-Provider in omadia verfügbar. Deklarativer Provider — wird aus diesem Manifest registriert, ohne Laufzeit-Provider-Code. EU-gehostet (Rechenzentrum Helsinki), DSGVO-konform mit AVV."
@@ -46,10 +46,11 @@ lifecycle:
 # `reasoning_effort` to native OpenAI, so no `effort_levels` are declared here;
 # the classes map onto the variants instead.
 #
-# OPEN (needs a live key): the adapter drops `reasoning_content` and never
-# echoes it back. DeepSeek's own API requires it on follow-up requests inside
-# a thinking-mode tool loop; whether SeibertGPT's gateway enforces that is
-# unverified. If balanced/frontier fail on tool round-trips, that is the cause.
+# Verified live 2026-10-09 against api.gpt.seibert.ai through the omadia
+# openai adapter: all three variants complete a multi-turn tool loop and
+# stream. The adapter drops `reasoning_content` and never echoes it back; the
+# gateway does not require it (unlike DeepSeek's own API). Image input works
+# on every variant (`image_url` data URLs), hence `vision: true`.
 #
 # Context window: plans range from 350k to 1M tokens, but the fair-use rule
 # `cold_request_too_large` rejects any new/cold session above 350k tokens on
@@ -81,19 +82,19 @@ llm_provider:
         label: "{id} (ohne Denkmodus)"
         max_tokens: 32768
         context_window: 350000
-        vision: false
+        vision: true
       - match: "-high$"
         class: "frontier"
         label: "{id} (Denkaufwand hoch)"
         max_tokens: 32768
         context_window: 350000
-        vision: false
+        vision: true
       - match: "^deepseek-v\\d+-[a-z]+$"
         class: "balanced"
         label: "{id} (Denkmodus)"
         max_tokens: 32768
         context_window: 350000
-        vision: false
+        vision: true
   models:
     - id: "seibertgpt:deepseek-v41-flash-high"
       model_id: "deepseek-v41-flash-high"
@@ -101,21 +102,21 @@ llm_provider:
       class: "frontier"
       max_tokens: 32768
       context_window: 350000
-      vision: false
+      vision: true
     - id: "seibertgpt:deepseek-v41-flash"
       model_id: "deepseek-v41-flash"
       label: "DeepSeek V4.1 Flash (Denkmodus)"
       class: "balanced"
       max_tokens: 32768
       context_window: 350000
-      vision: false
+      vision: true
     - id: "seibertgpt:deepseek-v41-flash-fast"
       model_id: "deepseek-v41-flash-fast"
       label: "DeepSeek V4.1 Flash (ohne Denkmodus)"
       class: "fast"
       max_tokens: 32768
       context_window: 350000
-      vision: false
+      vision: true
 
 setup:
   fields:
