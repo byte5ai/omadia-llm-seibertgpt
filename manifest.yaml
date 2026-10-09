@@ -1,0 +1,154 @@
+schema_version: "1"
+
+identity:
+  id: "@omadia/plugin-llm-seibertgpt"
+  name: "SeibertGPT LLM Provider"
+  version: "0.1.0"
+  kind: "extension"
+  domain: "llm.provider.seibertgpt"
+  description: "Macht SeibertGPT (DeepSeek V4.1 Flash, betrieben von der Seibert Group) als admin-wählbaren, OpenAI-kompatiblen LLM-Provider in omadia verfügbar. Deklarativer Provider — wird aus diesem Manifest registriert, ohne Laufzeit-Provider-Code. EU-gehostet (Rechenzentrum Helsinki), DSGVO-konform mit AVV."
+  authors:
+    - name: "byte5 GmbH"
+      email: "info@omadia.ai"
+      url: "https://omadia.ai"
+  license: "MIT"
+  categories:
+    - "llm-provider"
+    - "infrastructure"
+
+compat:
+  core: ">=1.0 <2.0"
+  node: ">=20"
+
+lifecycle:
+  entry: "dist/plugin.js"
+
+# Declarative LLM-provider contribution. The kernel reads this block at
+# manifest-load (before any plugin activates) and registers SeibertGPT into the
+# LlmProviderCatalog + the dynamic model overlay. The API key (`gpt_…`) is set
+# centrally on the admin Providers page (vault key `provider:seibertgpt/api_key`),
+# exactly like the other provider plugins — NOT via per-plugin setup secrets,
+# because the orchestrator reads the key from its own (shared) vault scope.
+#
+# API reference: https://gpt.seibert.ai/api-doku
+#
+# Wire format: SeibertGPT offers both an OpenAI-compatible (`/v1/chat/completions`)
+# and an Anthropic-compatible (`/v1/messages`) surface. We use the OpenAI one —
+# it is the primary documented surface and keeps 429 semantics for plan/quota
+# errors (the Anthropic surface maps those to 402).
+#
+# No `quirks` block: the gateway accepts `max_tokens`, `tools`, `tool_choice`
+# and `parallel_tool_calls` (documented parameter list) — exactly what the
+# openai-compatible adapter emits by default for a non-openai provider id.
+#
+# Reasoning depth: SeibertGPT encodes the thinking budget in the MODEL ID
+# (`-fast` / plain / `-low` / `-high` / `-max`). The adapter only sends
+# `reasoning_effort` to native OpenAI, so no `effort_levels` are declared here;
+# the classes map onto the variants instead.
+#
+# OPEN (needs a live key): the adapter drops `reasoning_content` and never
+# echoes it back. DeepSeek's own API requires it on follow-up requests inside
+# a thinking-mode tool loop; whether SeibertGPT's gateway enforces that is
+# unverified. If balanced/frontier fail on tool round-trips, that is the cause.
+#
+# Context window: plans range from 350k to 1M tokens, but the fair-use rule
+# `cold_request_too_large` rejects any new/cold session above 350k tokens on
+# EVERY plan. 350000 is therefore the safe ceiling for an agent that may start
+# a fresh session at any time.
+llm_provider:
+  id: "seibertgpt"
+  label: "SeibertGPT"
+  wire_format: "openai-compatible"
+  default_base_url: "https://api.gpt.seibert.ai/v1"
+  base_url_config_key: "seibertgpt_base_url"
+  # Hosted in Helsinki (EU) — surfaces the no-third-country-transfer note.
+  # AVV disclosure stays at the catalogue default (required): SeibertGPT
+  # offers an AVV that the operator has to conclude.
+  policy:
+    eu_hosted: true
+  # models is the offline seed; no discovery rule may name a version.
+  # `-low` and `-max` are left out on purpose: one model per class keeps the
+  # class default deterministic, and `-max` holds a concurrency slot for a long
+  # time — on the 1-request Standard plan that stalls every other agent.
+  discovery:
+    include:
+      - "^deepseek-"
+    exclude:
+      - "-(low|max)$"
+    classify:
+      - match: "-fast$"
+        class: "fast"
+        label: "{id} (ohne Denkmodus)"
+        max_tokens: 32768
+        context_window: 350000
+        vision: false
+      - match: "-high$"
+        class: "frontier"
+        label: "{id} (Denkaufwand hoch)"
+        max_tokens: 32768
+        context_window: 350000
+        vision: false
+      - match: "^deepseek-v\\d+-[a-z]+$"
+        class: "balanced"
+        label: "{id} (Denkmodus)"
+        max_tokens: 32768
+        context_window: 350000
+        vision: false
+  models:
+    - id: "seibertgpt:deepseek-v41-flash-high"
+      model_id: "deepseek-v41-flash-high"
+      label: "DeepSeek V4.1 Flash (Denkaufwand hoch)"
+      class: "frontier"
+      max_tokens: 32768
+      context_window: 350000
+      vision: false
+    - id: "seibertgpt:deepseek-v41-flash"
+      model_id: "deepseek-v41-flash"
+      label: "DeepSeek V4.1 Flash (Denkmodus)"
+      class: "balanced"
+      max_tokens: 32768
+      context_window: 350000
+      vision: false
+    - id: "seibertgpt:deepseek-v41-flash-fast"
+      model_id: "deepseek-v41-flash-fast"
+      label: "DeepSeek V4.1 Flash (ohne Denkmodus)"
+      class: "fast"
+      max_tokens: 32768
+      context_window: 350000
+      vision: false
+
+setup:
+  fields:
+    - key: "seibertgpt_base_url"
+      type: "url"
+      label: "SeibertGPT Base-URL"
+      help: "Standard: https://api.gpt.seibert.ai/v1 (EU-gehostet, Rechenzentrum Helsinki)"
+      required: false
+      default: "https://api.gpt.seibert.ai/v1"
+
+playbook:
+  when_to_use: |
+    Installiere diesen Provider, um DeepSeek V4.1 Flash über SeibertGPT als
+    Orchestrator-/Sub-Agent-/Verifier-LLM auszuwählen. Nach der Installation
+    den API-Key (gpt_…) auf der Admin-Providers-Seite hinterlegen und
+    SeibertGPT dem gewünschten Plugin (z.B. Orchestrator) zuweisen.
+    EU-gehostet (Helsinki), DSGVO-konform mit AVV — relevant für
+    Datenschutz-/Compliance-Anforderungen. Für Multi-Agent-Setups mindestens
+    den Premium-Plan (2 parallele Requests) wählen; der Standard-Plan erlaubt
+    nur einen Request gleichzeitig. Keys sind an eine IP gebunden — bei
+    mehreren Egress-IPs (z.B. mehrere Instanzen) je Instanz einen Key nutzen.
+
+permissions:
+  memory:
+    reads: []
+    writes: []
+  graph:
+    reads: []
+    writes: []
+  network:
+    outbound:
+      - "api.gpt.seibert.ai"
+  filesystem:
+    scratch: false
+
+integrations: []
