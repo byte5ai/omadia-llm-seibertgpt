@@ -34,7 +34,7 @@ Agenten fragen eine Klasse an (`fast`, `balanced`, `frontier`). omadia ordnet de
 
 ## So funktioniert es in omadia
 
-Ein deklaratives Provider-Plugin, es bringt also keinen Laufzeit-Provider-Code mit. Der omadia-Kernel liest beim Laden des Plugins den `llm_provider`-Block aus `manifest.yaml` (ID, Base-URL, Modelle), noch bevor ein Agent aktiviert wird, und registriert ihn im Provider-Katalog. SeibertGPT spricht das OpenAI-kompatible Wire-Format, omadia steuert es deshalb über seinen eingebauten OpenAI-kompatiblen Adapter an. Das Manifest kennzeichnet den Provider als EU-gehostet, die Admin-Providers-Seite zeigt deshalb den passenden Datenschutz-Hinweis.
+Ein Modell-Plugin (Kind `model`); nur das Modell-Gateway des Kernels ruft es auf. Es ist ein deklaratives Provider-Plugin, es bringt also keinen Laufzeit-Provider-Code mit. Der omadia-Kernel liest beim Laden des Plugins den `llm_provider`-Block aus `manifest.yaml` (ID, Base-URL, Modelle), noch bevor ein Agent aktiviert wird, und registriert ihn im Provider-Katalog. SeibertGPT spricht das OpenAI-kompatible Wire-Format, omadia steuert es deshalb über seinen eingebauten OpenAI-kompatiblen Adapter an. Das Manifest kennzeichnet den Provider als EU-gehostet, die Admin-Providers-Seite zeigt deshalb den passenden Datenschutz-Hinweis.
 
 ## Installation
 
