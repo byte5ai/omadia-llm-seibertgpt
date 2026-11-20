@@ -151,6 +151,8 @@ permissions:
   network:
     outbound:
       - "api.gpt.seibert.ai"
+      # Operator-configured base URL (proxy/gateway/remote); the kernel allows its host.
+      - "$config.seibertgpt_base_url"
   filesystem:
     scratch: false
 
